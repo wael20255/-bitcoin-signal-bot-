@@ -1,15 +1,19 @@
-function getSignal() {
-  const fakePrice = 85500;
-  const ema9 = 85300;
-  const ema21 = 85000;
-  const rsi = 60;
-  const signalText = document.getElementById("signal");
 
-  if (ema9 > ema21 && rsi > 50 && rsi < 70) {
-    signalText.innerText = "🔼 إشارة شراء - الزخم صاعد";
-  } else if (ema9 < ema21 && rsi < 50 && rsi > 30) {
-    signalText.innerText = "🔽 إشارة بيع - الزخم هابط";
-  } else {
-    signalText.innerText = "⏸️ لا توجد إشارة واضحة الآن";
+async function getSignal() {
+  document.getElementById("signal").innerText = "جارٍ التحديث...";
+  document.getElementById("confidence").innerText = "--%";
+
+  try {
+    // محاكاة إشارة لحين ربط بيانات Binance الحقيقية
+    const responses = ["شراء قوي", "بيع قوي", "انتظار"];
+    const confidence = Math.floor(60 + Math.random() * 40);
+    const signal = responses[Math.floor(Math.random() * responses.length)];
+
+    document.getElementById("signal").innerText = signal;
+    document.getElementById("confidence").innerText = confidence + "%";
+  } catch (e) {
+    document.getElementById("signal").innerText = "خطأ في الاتصال";
   }
 }
+
+window.onload = getSignal;

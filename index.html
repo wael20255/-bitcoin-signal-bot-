@@ -3,21 +3,33 @@
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
-    <title>إشارة بيتكوين</title>
+    <title>إشارة بيتكوين وذهب</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h1>📊 إشارة التداول (1 ساعة)</h1>
-        <div id="signal-box">
-            <p id="signal">🔄 جاري التحليل...</p>
-            <p id="price"></p>
-            <p id="target"></p>
-            <p id="confidence"></p>
-            <p id="conditions"></p>
+        <h1>📊 إشارة التداول (آخر ساعة)</h1>
+        <button onclick="getSignals()">🔁 تحديث الإشارات</button>
+
+        <div class="signal-section">
+            <h2>₿ بيتكوين (BTCUSDT)</h2>
+            <p id="btc-signal" class="gray">🔄 جاري التحليل...</p>
+            <p id="btc-price"></p>
+            <p id="btc-target"></p>
+            <p id="btc-confidence"></p>
+            <p id="btc-conditions"></p>
         </div>
-        <button onclick="getSignal()">🔁 تحديث الإشارة</button>
+
+        <div class="signal-section">
+            <h2>🥇 الذهب (XAUUSDT)</h2>
+            <p id="gold-signal" class="gray">🔄 جاري التحليل...</p>
+            <p id="gold-price"></p>
+            <p id="gold-target"></p>
+            <p id="gold-confidence"></p>
+            <p id="gold-conditions"></p>
+        </div>
     </div>
+
     <script src="script.js"></script>
 </body>
 </html>

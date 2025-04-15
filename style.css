@@ -1,41 +1,30 @@
 
 body {
-    font-family: 'Arial', sans-serif;
-    direction: rtl;
-    background-color: #f8f9fa;
-    color: #333;
-    text-align: center;
-    padding: 40px;
+  font-family: Arial, sans-serif;
+  background-color: #111;
+  color: #eee;
+  direction: rtl;
+  text-align: right;
 }
-
 .container {
-    background: white;
-    border-radius: 10px;
-    padding: 30px;
-    max-width: 600px;
-    margin: auto;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  width: 90%;
+  margin: auto;
+  padding: 20px;
 }
-
-#signal-box p {
-    font-size: 18px;
-    margin: 10px 0;
+.signal-section {
+  background: #1e1e1e;
+  padding: 15px;
+  margin-top: 20px;
+  border-radius: 8px;
 }
-
-#signal.green { color: green; }
-#signal.red { color: red; }
-#signal.gray { color: gray; }
-
 button {
-    padding: 10px 20px;
-    font-size: 16px;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
+  background-color: #ffcc00;
+  color: black;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
 }
-
-button:hover {
-    background-color: #0056b3;
-}
+.green { color: #0f0; }
+.red { color: #f00; }
+.gray { color: #aaa; }

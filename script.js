@@ -1,208 +1,75 @@
 
 async function getSignals() {
-    document.getElementById("signal").textContent = "🔄 جاري التحليل...";
-    document.getElementById("signal").className = "";
+  const assets = [
+    { symbol: "BTCUSDT", label: "btc" },
+    { symbol: "XAUUSDT", label: "gold" }
+  ];
 
-    const response = await fetch("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=50");
-    const data = await response.json();
+  for (const asset of assets) {
+    const url = `https://api.binance.com/api/v3/klines?symbol=${asset.symbol}&interval=1h&limit=50`;
 
-    const closePrices = data.map(c => parseFloat(c[4]));
-    const lastPrice = closePrices[closePrices.length - 1];
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
 
-    function ema(prices, span) {
-        const k = 2 / (span + 1);
-        let emaArray = [prices[0]];
-        for (let i = 1; i < prices.length; i++) {
-            emaArray.push(prices[i] * k + emaArray[i - 1] * (1 - k));
-        }
-        return emaArray;
+      const closes = data.map(candle => parseFloat(candle[4]));
+      const volumes = data.map(candle => parseFloat(candle[5]));
+      const lastClose = closes[closes.length - 1];
+      const avgVolume = volumes.slice(-20).reduce((a, b) => a + b, 0) / 20;
+
+      // RSI
+      const gains = [];
+      const losses = [];
+      for (let i = 1; i < closes.length; i++) {
+        const diff = closes[i] - closes[i - 1];
+        if (diff >= 0) gains.push(diff);
+        else losses.push(Math.abs(diff));
+      }
+      const avgGain = gains.reduce((a, b) => a + b, 0) / gains.length;
+      const avgLoss = losses.reduce((a, b) => a + b, 0) / losses.length;
+      const rs = avgGain / (avgLoss || 1);
+      const rsi = 100 - 100 / (1 + rs);
+
+      // دعم ومقاومة (بسيط من أعلى وأدنى)
+      const high = Math.max(...closes.slice(-10));
+      const low = Math.min(...closes.slice(-10));
+      const support = low.toFixed(2);
+      const resistance = high.toFixed(2);
+
+      // إشارة دخول
+      let signal = "🔁 انتظار";
+      let entryType = "غير متاح";
+      let reason = "لا توجد مؤشرات كافية للدخول";
+      let target = "غير محدد";
+      let stop = "غير محدد";
+
+      if (rsi > 55 && lastClose > closes[closes.length - 2]) {
+        signal = "✅ شراء";
+        entryType = "دخول سريع";
+        target = (lastClose + (resistance - lastClose) * 0.8).toFixed(2);
+        stop = (support - 0.5).toFixed(2);
+        reason = `RSI إيجابي (${rsi.toFixed(1)}), والسعر أعلى من السابق`;
+      } else if (rsi < 45 && lastClose < closes[closes.length - 2]) {
+        signal = "❌ بيع";
+        entryType = "دخول سريع";
+        target = (lastClose - (lastClose - support) * 0.8).toFixed(2);
+        stop = (resistance + 0.5).toFixed(2);
+        reason = `RSI سلبي (${rsi.toFixed(1)}), والسعر أقل من السابق`;
+      }
+
+      // عرض النتائج
+      document.getElementById(`${asset.label}-signal`).textContent = `🔄 الإشارة: ${signal}`;
+      document.getElementById(`${asset.label}-price`).textContent = `💰 السعر الحالي: ${lastClose.toFixed(2)}`;
+      document.getElementById(`${asset.label}-entry`).textContent = `✳️ نوع الدخول: ${entryType}`;
+      document.getElementById(`${asset.label}-target`).textContent = `🎯 الهدف المتوقع: ${target}`;
+      document.getElementById(`${asset.label}-stop`).textContent = `🛑 وقف الخسارة: ${stop}`;
+      document.getElementById(`${asset.label}-volume`).textContent = `📊 حجم التداول: ${avgVolume.toFixed(0)}`;
+      document.getElementById(`${asset.label}-support`).textContent = `🔻 الدعم: ${support}`;
+      document.getElementById(`${asset.label}-resistance`).textContent = `🔺 المقاومة: ${resistance}`;
+      document.getElementById(`${asset.label}-reasons`).textContent = `📋 الأسباب: ${reason}`;
+
+    } catch (error) {
+      console.error("خطأ في جلب البيانات:", error);
     }
-
-    function rsi(prices, period = 14) {
-        let gains = [], losses = [];
-        for (let i = 1; i <= period; i++) {
-            const change = prices[i] - prices[i - 1];
-            if (change >= 0) gains.push(change);
-            else losses.push(-change);
-        }
-        let avgGain = gains.reduce((a,b) => a + b, 0) / period;
-        let avgLoss = losses.reduce((a,b) => a + b, 0) / period;
-
-        for (let i = period; i < prices.length; i++) {
-            const change = prices[i] - prices[i - 1];
-            avgGain = (avgGain * (period - 1) + Math.max(change, 0)) / period;
-            avgLoss = (avgLoss * (period - 1) + Math.max(-change, 0)) / period;
-        }
-
-        const rs = avgGain / avgLoss;
-        return 100 - (100 / (1 + rs));
-    }
-
-    const ema20 = ema(closePrices, 20);
-    const ema50 = ema(closePrices, 50);
-    const rsiVal = rsi(closePrices);
-    const macd = ema(closePrices, 12).map((v, i) => v - ema(closePrices, 26)[i]);
-    const macdSignal = ema(macd, 9);
-
-    const lastEma20 = ema20[ema20.length - 1];
-    const lastEma50 = ema50[ema50.length - 1];
-    const lastMacd = macd[macd.length - 1];
-    const lastMacdSignal = macdSignal[macdSignal.length - 1];
-
-    let signal = "";
-    let confidence = 0;
-    let reasons = [];
-
-    if (lastEma20 > lastEma50) {
-        signal = "شراء";
-        confidence += 30;
-        reasons.push("EMA20 > EMA50");
-    } else if (lastEma20 < lastEma50) {
-        signal = "بيع";
-        confidence += 30;
-        reasons.push("EMA20 < EMA50");
-    }
-
-    if (rsiVal > 55) {
-        signal = signal || "شراء";
-        confidence += 20;
-        reasons.push("RSI مرتفع");
-    } else if (rsiVal < 45) {
-        signal = signal || "بيع";
-        confidence += 20;
-        reasons.push("RSI منخفض");
-    }
-
-    if (lastMacd > lastMacdSignal) {
-        signal = signal || "شراء";
-        confidence += 30;
-        reasons.push("MACD إيجابي");
-    } else if (lastMacd < lastMacdSignal) {
-        signal = signal || "بيع";
-        confidence += 30;
-        reasons.push("MACD سلبي");
-    }
-
-    if (confidence < 40) {
-        signal = "انتظار";
-        reasons.push("لا توجد إشارات كافية");
-    }
-
-    let target = signal === "شراء" ? (lastPrice * 1.01).toFixed(2)
-               : signal === "بيع" ? (lastPrice * 0.99).toFixed(2)
-               : "لا يوجد";
-
-    let signalEl = document.getElementById("signal");
-    signalEl.textContent = `🔄 الإشارة: ${signal}`;
-    signalEl.className = signal === "شراء" ? "green" : signal === "بيع" ? "red" : "gray";
-    document.getElementById("price").textContent = `💰 السعر الحالي: ${lastPrice}`;
-    document.getElementById("target").textContent = `🎯 الهدف المتوقع: ${target}`;
-    document.getElementById("confidence").textContent = `📊 نسبة الثقة: ${confidence}%`;
-    document.getElementById("conditions").textContent = `📋 المؤشرات: ${reasons.join("، ")}`;
-}
-
-// تحميل تلقائي عند الدخول
-getSignals();
-
-async function getAnalysis(symbol, prefix) {
-    const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1h&limit=50`);
-    const data = await response.json();
-    const closePrices = data.map(c => parseFloat(c[4]));
-    const lastPrice = closePrices[closePrices.length - 1];
-
-    function ema(prices, span) {
-        const k = 2 / (span + 1);
-        let emaArray = [prices[0]];
-        for (let i = 1; i < prices.length; i++) {
-            emaArray.push(prices[i] * k + emaArray[i - 1] * (1 - k));
-        }
-        return emaArray;
-    }
-
-    function rsi(prices, period = 14) {
-        let gains = [], losses = [];
-        for (let i = 1; i <= period; i++) {
-            const change = prices[i] - prices[i - 1];
-            if (change >= 0) gains.push(change);
-            else losses.push(-change);
-        }
-        let avgGain = gains.reduce((a,b) => a + b, 0) / period;
-        let avgLoss = losses.reduce((a,b) => a + b, 0) / period;
-
-        for (let i = period; i < prices.length; i++) {
-            const change = prices[i] - prices[i - 1];
-            avgGain = (avgGain * (period - 1) + Math.max(change, 0)) / period;
-            avgLoss = (avgLoss * (period - 1) + Math.max(-change, 0)) / period;
-        }
-
-        const rs = avgGain / avgLoss;
-        return 100 - (100 / (1 + rs));
-    }
-
-    const ema20 = ema(closePrices, 20);
-    const ema50 = ema(closePrices, 50);
-    const rsiVal = rsi(closePrices);
-    const macd = ema(closePrices, 12).map((v, i) => v - ema(closePrices, 26)[i]);
-    const macdSignal = ema(macd, 9);
-
-    const lastEma20 = ema20[ema20.length - 1];
-    const lastEma50 = ema50[ema50.length - 1];
-    const lastMacd = macd[macd.length - 1];
-    const lastMacdSignal = macdSignal[macdSignal.length - 1];
-
-    let signal = "";
-    let confidence = 0;
-    let reasons = [];
-
-    if (lastEma20 > lastEma50) {
-        signal = "شراء";
-        confidence += 30;
-        reasons.push("EMA20 > EMA50");
-    } else if (lastEma20 < lastEma50) {
-        signal = "بيع";
-        confidence += 30;
-        reasons.push("EMA20 < EMA50");
-    }
-
-    if (rsiVal > 55) {
-        signal = signal || "شراء";
-        confidence += 20;
-        reasons.push("RSI مرتفع");
-    } else if (rsiVal < 45) {
-        signal = signal || "بيع";
-        confidence += 20;
-        reasons.push("RSI منخفض");
-    }
-
-    if (lastMacd > lastMacdSignal) {
-        signal = signal || "شراء";
-        confidence += 30;
-        reasons.push("MACD إيجابي");
-    } else if (lastMacd < lastMacdSignal) {
-        signal = signal || "بيع";
-        confidence += 30;
-        reasons.push("MACD سلبي");
-    }
-
-    if (confidence < 40) {
-        signal = "انتظار";
-        reasons.push("لا توجد إشارات كافية");
-    }
-
-    let target = signal === "شراء" ? (lastPrice * 1.01).toFixed(2)
-               : signal === "بيع" ? (lastPrice * 0.99).toFixed(2)
-               : "لا يوجد";
-
-    let signalEl = document.getElementById(`${prefix}-signal`);
-    signalEl.textContent = `🔄 الإشارة: ${signal}`;
-    signalEl.className = signal === "شراء" ? "green" : signal === "بيع" ? "red" : "gray";
-    document.getElementById(`${prefix}-price`).textContent = `💰 السعر الحالي: ${lastPrice}`;
-    document.getElementById(`${prefix}-target`).textContent = `🎯 الهدف المتوقع: ${target}`;
-    document.getElementById(`${prefix}-confidence`).textContent = `📊 نسبة الثقة: ${confidence}%`;
-    document.getElementById(`${prefix}-conditions`).textContent = `📋 المؤشرات: ${reasons.join("، ")}`;
-}
-
-function getSignals() {
-    getAnalysis("BTCUSDT", "btc");
-    getAnalysis("XAUUSDT", "gold");
+  }
 }
